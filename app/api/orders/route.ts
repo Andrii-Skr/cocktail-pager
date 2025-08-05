@@ -23,7 +23,8 @@ export async function POST(req: NextRequest) {
   });
 
   // realtime
-  getIO()?.emit("new-order", order);
+  const io = getIO();
+  io?.emit("new-order", order);
 
   return NextResponse.json(order, { status: 201 });
 }
