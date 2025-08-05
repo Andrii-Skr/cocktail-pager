@@ -1,7 +1,7 @@
 "use client";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { CocktailCard } from "@/components/CocktailCard";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export default function Home() {
   const { data: cocktails = [] } = useQuery({
@@ -10,6 +10,16 @@ export default function Home() {
   });
 
   const [snackbar, setSnackbar] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+    };
+  }, []);
+
   const orderMutation = useMutation({
     mutationFn: (id: number) =>
       fetch("/api/orders", {
@@ -19,7 +29,10 @@ export default function Home() {
       }),
     onSuccess: () => {
       setSnackbar(true);
-      setTimeout(() => setSnackbar(false), 2500);
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+      timerRef.current = setTimeout(() => setSnackbar(false), 2500);
     },
   });
 
