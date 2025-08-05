@@ -42,7 +42,7 @@ export default function Bartender() {
       });
 
       /* фоновый refetch на случай изменений */
-      qc.refetchQueries({ queryKey: ["orders"] });
+      qc.invalidateQueries({ queryKey: ["orders"] });
 
       /* колокольчик */
       const bell = audioRef.current;
