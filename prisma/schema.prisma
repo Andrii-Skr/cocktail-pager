@@ -1,0 +1,33 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Cocktail {
+  id          Int       @id @default(autoincrement())
+  name        String
+  description String
+  imageUrl    String
+  orders      Order[]
+}
+
+model Order {
+  id          Int        @id @default(autoincrement())
+  cocktail    Cocktail   @relation(fields: [cocktailId], references: [id])
+  cocktailId  Int
+  deviceId    String
+  note        String?
+  status      OrderStatus @default(NEW)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+enum OrderStatus {
+  NEW
+  IN_PROGRESS
+  DONE
+}
