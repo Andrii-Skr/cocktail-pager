@@ -4,7 +4,8 @@
 import { useEffect, useRef } from "react";
 import { io, Socket } from "socket.io-client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { OrderCard, OrderWithCocktail } from "@/components/OrderCard";
+import { OrderCard} from "@/components/OrderCard";
+import type {OrderWithCocktail} from "@/types/types"
 
 export default function Bartender() {
   const qc = useQueryClient();

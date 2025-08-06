@@ -1,16 +1,15 @@
 // app/page.tsx
 "use client";
 
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useState, useRef } from "react";
+import toast from "react-hot-toast";
 
-import CocktailSwiper from "@/components/CocktailSwiper";   // ← новый слайдер
+import useFingerprintId from "@/hooks/useDeviceId";
+import CocktailSwiper from "@/components/CocktailSwiper";
 
-/* ------------------------------------------------------------------ */
-/* Страница                                                           */
-/* ------------------------------------------------------------------ */
 export default function Home() {
-  /* 1. Загружаем коктейли --------------------------------------------------- */
+  /* 1. Коктейли ------------------------------------------------------------ */
   const { data: cocktails = [], error } = useQuery({
     queryKey: ["cocktails"],
     queryFn: async () => {
@@ -20,26 +19,28 @@ export default function Home() {
     },
   });
 
-  /* 2. Заказ + snackbar ----------------------------------------------------- */
-  const [snackbar, setSnackbar] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /* 2. Fingerprint --------------------------------------------------------- */
+  const deviceId = useFingerprintId();
+  const ready    = !!deviceId;
 
+  /* 3. Локальный флаг от двойного тапа ------------------------------------ */
+  const [clickLock, setClickLock] = useState(false);
+
+  /* 4. Мутация «создать заказ» -------------------------------------------- */
   const orderMutation = useMutation({
-    mutationFn: async (id: number) =>
+    mutationFn: async (cocktailId: number) =>
       fetch("/api/orders", {
-        method: "POST",
-        body: JSON.stringify({ cocktailId: id }),
+        method : "POST",
+        body   : JSON.stringify({ cocktailId, deviceId }),
         headers: { "Content-Type": "application/json" },
       }),
-    onSuccess: () => {
-      setSnackbar(true);
-      if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => setSnackbar(false), 2500);
-    },
-    onError: () => alert("Не удалось отправить заказ"),
+    onMutate: () => setClickLock(true),              // ← блокируем сразу
+    onSuccess: () => toast.success("🛎 Заказ принят!"),
+    onError  : () => toast.error("Не удалось отправить заказ"),
+    onSettled: () => setClickLock(false),            // ← снимаем блок
   });
 
-  /* 3. UI ------------------------------------------------------------------ */
+  /* 5. UI ------------------------------------------------------------------ */
   return (
     <main className="h-screen overflow-hidden bg-zinc-950 text-white">
       {error ? (
@@ -47,18 +48,15 @@ export default function Home() {
       ) : cocktails.length ? (
         <CocktailSwiper
           cocktails={cocktails}
-          onOrder={(id) => orderMutation.mutate(id)}
+          onOrder={(id) => {
+            /* если запрос уже идёт или локальный блок активен — игнорируем */
+            if (orderMutation.isPending || clickLock) return;
+            orderMutation.mutate(id);
+          }}
+          // disabled={!ready || orderMutation.isPending || clickLock}
         />
       ) : (
         <div className="p-4">Загрузка…</div>
-      )}
-
-      {snackbar && (
-        <div className="fixed bottom-4 inset-x-0 flex justify-center">
-          <div className="bg-emerald-600 text-white px-4 py-2 rounded-xl">
-            🛎 Ваш заказ принят!
-          </div>
-        </div>
       )}
     </main>
   );

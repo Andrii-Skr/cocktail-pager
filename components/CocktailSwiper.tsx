@@ -15,7 +15,7 @@ export interface Cocktail {
   imageUrl: string;
 }
 
-interface Props {
+type Props = {
   cocktails: Cocktail[];
   onOrder?: (id: number) => void;
 }
