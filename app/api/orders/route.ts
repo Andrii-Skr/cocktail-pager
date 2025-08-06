@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
 
   // realtime
   const io = getIO();
+  console.log("io is", !!io);
   io?.emit("new-order", order);
 
   return NextResponse.json(order, { status: 201 });

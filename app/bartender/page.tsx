@@ -41,6 +41,11 @@ export default function Bartender() {
         return [...old, order];
       });
 
+      const query = qc.getQueryCache().find({ queryKey: ["orders"] });
+      if (query?.isActive()) {
+        refetch();
+      }
+
       /* фоновый refetch на случай изменений */
       qc.invalidateQueries({ queryKey: ["orders"] });
 

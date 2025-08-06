@@ -2,19 +2,18 @@
 import { Server as IOServer } from "socket.io";
 import type { Server as HTTPServer } from "http";
 
-let io: IOServer | undefined;
+declare global {
+  // единая точка хранения во всём Node-процессе
+  // (ключ с подчёркиванием, чтобы не столкнуться с чужими либами)
+  var _io: IOServer | undefined;
+}
 
-/**
- * Инициализирует io на переданном http-сервере
- * (вызывается один раз из pages/api/socket.ts)
- */
 export const initIO = (httpServer: HTTPServer) => {
-  if (!io) {
-    io = new IOServer(httpServer, { path: "/api/socket" });
-    console.log("🛎  Socket.io initialised");
+  if (!global._io) {
+    global._io = new IOServer(httpServer, { path: "/api/socket" });
+    console.log("🛎  Socket.IO initialised");
   }
-  return io;
+  return global._io;
 };
 
-/** Получить уже созданный экземпляр (используют App-роуты) */
-export const getIO = () => io;
+export const getIO = () => global._io;
