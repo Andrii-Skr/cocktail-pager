@@ -11,9 +11,19 @@ export default function Bartender() {
   const audioRef = useRef<HTMLAudioElement>(null);
 
   /* ─────────── 1. Заказы ─────────── */
-  const { data: orders = [], refetch } = useQuery<OrderWithCocktail[]>({
+  const {
+    data: orders = [],
+    error: ordersError,
+    refetch,
+  } = useQuery<OrderWithCocktail[]>({
     queryKey: ["orders"],
-    queryFn: () => fetch("/api/orders").then((r) => r.json()),
+    queryFn: async () => {
+      const r = await fetch("/api/orders");
+      if (!r.ok) {
+        throw new Error("Не удалось получить заказы");
+      }
+      return r.json();
+    },
   });
 
   /* ─────────── 2. Разблокировка + Socket ─────────── */
@@ -71,9 +81,13 @@ export default function Bartender() {
     <main className="max-w-md mx-auto p-4">
       <h1 className="text-2xl font-bold mb-4">Новые заказы</h1>
 
-      {orders.map((o) => (
-        <OrderCard key={o.id} order={o} onSave={refetch} />
-      ))}
+      {ordersError ? (
+        <div className="text-red-600">Ошибка загрузки заказов</div>
+      ) : (
+        orders.map((o) => (
+          <OrderCard key={o.id} order={o} onSave={refetch} />
+        ))
+      )}
 
       <audio ref={audioRef} src="/bell.mp3" preload="auto" />
     </main>
