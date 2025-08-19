@@ -2,6 +2,9 @@
 
 import { useState, useRef } from "react";
 import { OrderWithCocktail } from "@/types/types";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 interface Props {
   order:  OrderWithCocktail;
@@ -70,15 +73,14 @@ export function OrderCard({ order, onSave }: Props) {
 
       {/* Имя пользователя: редактируем, только если он 'Guest' */}
       {isGuest ? (
-        <input
-          className="border rounded w-full mt-1 p-1 text-sm text-black"
+        <Input
           placeholder="Имя гостя"
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
           onBlur={() => {
             if (name && name !== "Guest") patchUser(name);
           }}
-          onKeyDown={(e) => {
+          onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
             if (e.key === "Enter") {
               e.preventDefault();
               if (name && name !== "Guest") patchUser(name);
@@ -93,42 +95,41 @@ export function OrderCard({ order, onSave }: Props) {
       )}
 
       {/* Примечание */}
-      {/* <textarea
-        className="w-full border rounded mt-2 p-1 text-sm resize-none"
+      <Textarea
         rows={2}
         placeholder="Примечание…"
         value={note}
-        onChange={(e) => setNote(e.target.value)}
+        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNote(e.target.value)}
         onBlur={() => {
           // не слать пустые PATCH’и, если ничего не изменилось
           if (note !== (order.note ?? "")) {
             patchOrder({ note });
           }
         }}
-      /> */}
+      />
 
       {/* Кнопки статуса */}
       <div className="flex gap-2 mt-3 text-sm">
         {status !== "IN_PROGRESS" && (
-          <button
+          <Button
             onClick={() => {
               setStatus("IN_PROGRESS");
               patchOrder({ status: "IN_PROGRESS" });
             }}
-            className="flex-1 bg-amber-500 text-white py-1 rounded-lg active:scale-95 transition"
+            className="flex-1"
           >
             В работе
-          </button>
+          </Button>
         )}
-        <button
+        <Button
           onClick={() => {
             setStatus("DONE");
             patchOrder({ status: "DONE" });
           }}
-          className="flex-1 bg-emerald-600 text-white py-1 rounded-lg active:scale-95 transition"
+          className="flex-1"
         >
           Готово
-        </button>
+        </Button>
       </div>
     </div>
   );

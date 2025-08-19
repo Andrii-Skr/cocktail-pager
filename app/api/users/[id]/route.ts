@@ -1,9 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma"
 
 // id здесь — это Users.deviceId
-export async function PATCH(req: Request, ctx: { params: { id: string } }) {
-  const { id } = ctx.params;
+export async function PATCH(req: NextRequest, context: any) {
+  const { id } = context.params;
 
   let body: any;
   try {
@@ -38,9 +38,4 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
     console.error("PATCH /api/users/[id] error:", e);
     return NextResponse.json({ message: "Server error" }, { status: 500 });
   }
-}
-
-// Опционально: поддержать PUT тем же поведением
-export async function PUT(req: Request, ctx: { params: { id: string } }) {
-  return PATCH(req, ctx);
 }

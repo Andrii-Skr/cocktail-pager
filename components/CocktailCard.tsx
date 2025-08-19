@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { Button } from "@/components/ui/button";
 
 export function CocktailCard({
   cocktail,
@@ -21,12 +22,9 @@ export function CocktailCard({
       <div className="p-4">
         <h3 className="font-bold text-lg mb-1">{cocktail.name}</h3>
         <p className="text-sm text-gray-400 mb-4">{cocktail.description}</p>
-        <button
-          onClick={onOrder}
-          className="bg-rose-600 text-white px-4 py-2 rounded-xl w-full active:scale-95 transition"
-        >
+        <Button onClick={onOrder} className="w-full">
           🛎 Заказать
-        </button>
+        </Button>
       </div>
     </div>
   );
