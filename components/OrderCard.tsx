@@ -1,110 +1,219 @@
-"use client";
+"use client"
 
-import { useState, useRef } from "react";
-import { OrderWithCocktail } from "@/types/types";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { zodResolver } from "@hookform/resolvers/zod"
+import { useTranslations } from "next-intl"
+import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react"
+import { useForm } from "react-hook-form"
+import toast from "react-hot-toast"
+import { z } from "zod"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import type { OrderWithCocktail } from "@/types/types"
+
+const GUEST_NAME_SENTINEL = "Guest"
+const NAME_MAX = 100
+const NOTE_MAX = 500
+
+type FormValues = {
+  name: string
+  note: string
+}
 
 interface Props {
-  order:  OrderWithCocktail;
-  onSave: () => void; // вызывается после любого PATCH
+  order: OrderWithCocktail
+  onSave: () => void // вызывается после любого PATCH
 }
 
 export function OrderCard({ order, onSave }: Props) {
-  const [note, setNote] = useState(order.note ?? "");
-  const [status, setStatus] = useState(order.status);
-  const initialName = order.user?.name ?? "Guest";
-  const [name, setName] = useState(initialName);
+  const t = useTranslations("orderCard")
+  const tv = useTranslations("validation")
 
-  const isGuest = initialName === "Guest";
-  const userId = order.userId; // <— это связь на Users.deviceId
-  const isSavingUser = useRef(false);
-  const isSavingOrder = useRef(false);
+  const currentName = order.user?.name ?? GUEST_NAME_SENTINEL
+  const isGuest = !order.user?.name || order.user?.name === GUEST_NAME_SENTINEL
+  const formName = isGuest ? "" : currentName
 
-  /* PATCH заказ */
-  const patchOrder = async (data: Partial<OrderWithCocktail>) => {
-    if (isSavingOrder.current) return;
-    isSavingOrder.current = true;
-    try {
-      await fetch(`/api/orders/${order.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      onSave();
-    } finally {
-      isSavingOrder.current = false;
-    }
-  };
+  const [status, setStatus] = useState(order.status)
+  const userId = order.userId // <— это связь на Users.deviceId
+
+  const nameSchema = useMemo(
+    () => z.string().trim().max(NAME_MAX, tv("nameMax")),
+    [tv]
+  )
+  const noteSchema = useMemo(
+    () => z.string().max(NOTE_MAX, tv("noteMax")),
+    [tv]
+  )
+  const formSchema = useMemo(
+    () => z.object({ name: nameSchema, note: noteSchema }),
+    [nameSchema, noteSchema]
+  )
+
+  const {
+    register,
+    getValues,
+    reset,
+    setValue,
+    trigger,
+    getFieldState,
+    formState,
+  } = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      name: formName,
+      note: order.note ?? "",
+    },
+  })
+
+  const isSavingUser = useRef(false)
+  const orderPatchQueue = useRef(Promise.resolve())
+
+  useEffect(() => {
+    reset({
+      name: formName,
+      note: order.note ?? "",
+    })
+    setStatus(order.status)
+  }, [order.note, order.status, formName, reset])
+
+  type OrderPatch = {
+    note?: string | null
+    status?: OrderWithCocktail["status"]
+  }
+
+  /* PATCH заказ (с очередью, чтобы не терять клики) */
+  const enqueueOrderPatch = (data: OrderPatch, rollback?: () => void) => {
+    orderPatchQueue.current = orderPatchQueue.current.then(async () => {
+      try {
+        const res = await fetch(`/api/orders/${order.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        })
+        if (!res.ok) {
+          throw new Error(t("updateOrderError"))
+        }
+        onSave()
+      } catch (err) {
+        if (rollback) rollback()
+        const message =
+          err instanceof Error && err.message
+            ? err.message
+            : t("updateOrderError")
+        toast.error(message)
+      }
+    })
+  }
 
   /* PATCH имя пользователя в Users (по deviceId == userId) */
   const patchUser = async (newName: string) => {
-    if (!userId) return;
-    const trimmed = newName.trim();
-    if (!trimmed || trimmed === "Guest") return;
-    if (isSavingUser.current) return;
+    if (!userId) return
+    if (isSavingUser.current) return
 
-    isSavingUser.current = true;
+    const trimmed = newName.trim()
+    if (!trimmed || trimmed === currentName) return
+    if (trimmed === GUEST_NAME_SENTINEL) return
+
+    isSavingUser.current = true
     try {
       const res = await fetch(`/api/users/${encodeURIComponent(userId)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: trimmed }),
-      });
+      })
       if (!res.ok) {
-        // опционально можно показать тост/ошибку
-        return;
+        throw new Error(t("updateNameError"))
       }
-      onSave();
+      onSave()
+    } catch (err) {
+      setValue("name", formName)
+      const message =
+        err instanceof Error && err.message ? err.message : t("updateNameError")
+      toast.error(message)
     } finally {
-      isSavingUser.current = false;
+      isSavingUser.current = false
     }
-  };
+  }
+
+  const handleNameCommit = async () => {
+    const isValid = await trigger("name")
+    if (!isValid) {
+      const fieldState = getFieldState("name")
+      if (fieldState.error?.message) {
+        toast.error(fieldState.error.message)
+      }
+      return
+    }
+
+    const value = getValues("name").trim()
+    if (!value || value === currentName || value === GUEST_NAME_SENTINEL) {
+      return
+    }
+
+    void patchUser(value)
+  }
+
+  const handleNoteCommit = async () => {
+    const isValid = await trigger("note")
+    if (!isValid) {
+      const fieldState = getFieldState("note")
+      if (fieldState.error?.message) {
+        toast.error(fieldState.error.message)
+      }
+      return
+    }
+
+    const serverNote = order.note ?? ""
+    const value = getValues("note")
+
+    if (value !== serverNote) {
+      enqueueOrderPatch({ note: value }, () => setValue("note", serverNote))
+    }
+  }
+
+  const nameField = register("name")
+  const noteField = register("note")
 
   return (
     <div className="rounded-2xl border p-4 mb-4 bg-white shadow">
-      <h3 className="font-semibold mb-1 text-black">
-        {order.cocktail.name}
-      </h3>
+      <h3 className="font-semibold mb-1 text-black">{order.cocktail.name}</h3>
 
       {/* Показываем исходный deviceId заказа (это НЕ id юзера) */}
       <p className="text-xs text-gray-500 overflow-x-auto">{order.deviceId}</p>
 
-      {/* Имя пользователя: редактируем, только если он 'Guest' */}
+      {/* Имя пользователя: редактируем, только если он гостевой */}
       {isGuest ? (
         <Input
-          placeholder="Имя гостя"
-          value={name}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
-          onBlur={() => {
-            if (name && name !== "Guest") patchUser(name);
+          {...nameField}
+          placeholder={t("guestPlaceholder")}
+          aria-invalid={!!formState.errors.name}
+          onBlur={(event) => {
+            nameField.onBlur(event)
+            void handleNameCommit()
           }}
-          onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              if (name && name !== "Guest") patchUser(name);
-            } else if (e.key === "Escape") {
-              setName(initialName);
-              (e.currentTarget as HTMLInputElement).blur();
+          onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
+            if (event.key === "Enter") {
+              event.preventDefault()
+              void handleNameCommit()
+            } else if (event.key === "Escape") {
+              setValue("name", formName)
+              event.currentTarget.blur()
             }
           }}
         />
       ) : (
-        <p className="text-sm mt-1 font-medium text-black">{name}</p>
+        <p className="text-sm mt-1 font-medium text-black">{currentName}</p>
       )}
 
       {/* Примечание */}
       <Textarea
+        {...noteField}
         rows={2}
-        placeholder="Примечание…"
-        value={note}
-        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNote(e.target.value)}
-        onBlur={() => {
-          // не слать пустые PATCH’и, если ничего не изменилось
-          if (note !== (order.note ?? "")) {
-            patchOrder({ note });
-          }
+        placeholder={t("notePlaceholder")}
+        aria-invalid={!!formState.errors.note}
+        onBlur={(event) => {
+          noteField.onBlur(event)
+          void handleNoteCommit()
         }}
       />
 
@@ -113,26 +222,32 @@ export function OrderCard({ order, onSave }: Props) {
         {status !== "IN_PROGRESS" && (
           <Button
             onClick={() => {
-              setStatus("IN_PROGRESS");
-              patchOrder({ status: "IN_PROGRESS" });
+              const previousStatus = status
+              setStatus("IN_PROGRESS")
+              enqueueOrderPatch({ status: "IN_PROGRESS" }, () =>
+                setStatus(previousStatus)
+              )
             }}
             className="flex-1"
           >
-            В работе
+            {t("statusInProgress")}
           </Button>
         )}
         <Button
           onClick={() => {
-            setStatus("DONE");
-            patchOrder({ status: "DONE" });
+            const previousStatus = status
+            setStatus("DONE")
+            enqueueOrderPatch({ status: "DONE" }, () =>
+              setStatus(previousStatus)
+            )
           }}
           className="flex-1"
         >
-          Готово
+          {t("statusDone")}
         </Button>
       </div>
     </div>
-  );
+  )
 }
 
-export default OrderCard;
+export default OrderCard

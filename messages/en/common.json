@@ -1,0 +1,34 @@
+{
+  "home": {
+    "loadError": "Failed to load cocktails",
+    "loading": "Loading...",
+    "deviceNotReady": "Device is not ready yet",
+    "orderSubmitError": "Failed to place order",
+    "orderAccepted": "🛎 Order received!"
+  },
+  "bartender": {
+    "title": "New orders",
+    "loadError": "Failed to load orders"
+  },
+  "cocktailCard": {
+    "orderButton": "🛎 Order"
+  },
+  "orderCard": {
+    "guestPlaceholder": "Guest name",
+    "notePlaceholder": "Note...",
+    "statusInProgress": "In progress",
+    "statusDone": "Done",
+    "updateOrderError": "Failed to update order",
+    "updateNameError": "Failed to update name"
+  },
+  "language": {
+    "label": "Language",
+    "ru": "RU",
+    "uk": "UK",
+    "en": "EN"
+  },
+  "validation": {
+    "nameMax": "Name is too long",
+    "noteMax": "Note is too long"
+  }
+}

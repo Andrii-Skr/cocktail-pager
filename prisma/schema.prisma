@@ -10,7 +10,9 @@ generator client {
 model Cocktail {
   id          Int       @id @default(autoincrement())
   name        String
-  description String
+  descriptionRu String
+  descriptionUk String
+  descriptionEn String
   imageUrl    String
   orders      Order[]
 }
